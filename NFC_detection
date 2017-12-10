@@ -1,0 +1,148 @@
+
+#if 1
+  #include <SPI.h>
+  #include <PN532_SPI.h>
+  #include "PN532.h"
+  
+   PN532_SPI pn532spi(SPI, 10);
+   PN532 nfc(pn532spi);
+   PN532_SPI pn532spi2(SPI, 9);
+   PN532 nfc2(pn532spi2);
+ uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+ uint8_t uid2[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uidLength2;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+  
+  int value1,value2;
+  
+#endif
+  
+void setup(void) {
+  Serial.begin(115200);
+  Serial.println("Hello!");
+     nfc.begin();
+  nfc2.begin();
+  pinMode(10,OUTPUT);
+  pinMode(9,OUTPUT);
+
+ 
+  value1= digitalRead(10);
+  value2=digitalRead(9);
+
+
+  uint32_t versiondata = nfc.getFirmwareVersion();
+  uint32_t versiondata2 = nfc2.getFirmwareVersion();
+  
+  if ((! versiondata)||(! versiondata2)) {
+    Serial.print("Didn't find PN53x board");
+    while (1); // halt
+  }
+  
+  // Got ok data, print it out!
+ else if(value1==1)
+  {
+  Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
+  Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
+  Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
+  nfc.setPassiveActivationRetries(0xFF);
+    nfc.SAMConfig();
+    
+  }
+                         else if(value2==1)
+                                {
+                                Serial.print("Found chip PN5"); Serial.println((versiondata2>>24) & 0xFF, HEX); 
+                                Serial.print("Firmware ver. "); Serial.print((versiondata2>>16) & 0xFF, DEC); 
+                                Serial.print('.'); Serial.println((versiondata2>>8) & 0xFF, DEC);
+                                 nfc2.setPassiveActivationRetries(0xFF);
+                                 nfc2.SAMConfig(); 
+                                
+                                }
+                                else
+                                {
+                                  Serial.println("Fault Detected");
+                                }
+                                
+  // Set the max number of retry attempts to read from a card
+  // This prevents us from waiting forever for a card, which is
+  // the default behaviour of the PN532.
+  
+    /*nfc2.setPassiveActivationRetries(0xFF);
+  // configure board to read RFID tags
+  nfc.SAMConfig();
+    nfc2.SAMConfig();  
+  Serial.println("Waiting for an ISO14443A card");*/
+}
+
+void loop(void) {
+  
+
+  boolean success,success2;
+  /*uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+ uint8_t uid2[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uidLength2;       */                 // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+  
+  // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
+  // 'uid' will be populated with the UID, and uidLength will indicate
+  // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength);
+    success2 = nfc2.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid2[0], &uidLength2);
+  //value1= digitalRead(10);
+  //value2=digitalRead(9);
+  if((value1==1)&& (success== true))
+  {
+    Serial.println("Found a card!");
+    Serial.print("UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
+    Serial.print("UID Value of vehicle at checkpoint 01: ");
+    for (uint8_t i=0; i < uidLength; i++) 
+    {
+      Serial.print(" 0x");Serial.print(uid[i], HEX); 
+    }
+    Serial.println("");
+    // Wait 1 second before continuing
+    delay(1000);
+  }
+  
+  else if ((value2==1)&& (success2== true))
+  {
+   
+    Serial.println("Found a card!");
+    Serial.print("UID Length: ");Serial.print(uidLength2, DEC);Serial.println(" bytes");
+    Serial.print("UID Value of vehicle at checkpoint 02: ");
+    for (uint8_t i=0; i < uidLength2; i++) 
+    {
+      Serial.print(" 0x");Serial.print(uid2[i], HEX); 
+    }
+    Serial.println("");
+    // Wait 1 second before continuing
+    delay(1000);
+  }
+  
+  else
+  {
+    // PN532 probably timed out waiting for a card
+    Serial.println("Timed out waiting for a card");
+  }
+ 
+  compare();
+}
+
+void compare(){
+  for (uint8_t j=0,k=0; j < uidLength,k < uidLength2; j++,k++) 
+    {
+      if((uid[j])==(uid2[k]))
+      {
+        Serial.println("Safe no derailment/accident");
+      }
+      else if((uid[j])!=(uid2[k]))
+      {
+        Serial.println("Vehicle missing calling 080****");
+      }
+      else
+      {
+        Serial.println("Cause Not Found");
+      }
+    }
+    delay(1000);
+}
+    
